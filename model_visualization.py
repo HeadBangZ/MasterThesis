@@ -29,7 +29,8 @@ class ModelVisualization:
         Plot heatmap using confusion matrix
         """
         plt.figure(figsize=(5, 5))
-        sn.heatmap(cm, annot=True)
+        sn.scatterplot(cm)
+        # sn.heatmap(cm, annot=True)
         plt.xlabel('predicted')
         plt.ylabel('truth')
         plt.show()
