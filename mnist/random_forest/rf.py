@@ -45,7 +45,7 @@ def init():
     plt.imshow(point, cmap='gray')
     plt.show()
     add_outliers(x_train, y_train)
-    prepare_model(x_train)
+    prepare_model(x_train, y_train)
 
 
 def add_outliers(x_train, y_train):
@@ -67,45 +67,45 @@ def add_outliers(x_train, y_train):
     # show_plt(x_train, 3, 6)
 
 
-def prepare_model(data):
+def prepare_model(x_train, y_train):
     """
     prepares the model
     """
-    n_estimators = 100
-    if_contamination = 0.001
+    n_estimators = 1000
+    if_contamination = 0.03
 
     model = IsolationForest(
-        n_estimators=n_estimators, contamination=if_contamination, random_state=42)
-    nsamples, nx, ny = data.shape
-    data = data.reshape(nsamples, nx*ny)
+        n_estimators=n_estimators, contamination=if_contamination, random_state=42, max_samples='auto')
+    nsamples, nx, ny = x_train.shape
+    data = x_train.reshape(nsamples, nx*ny)
 
-    train_model(model, data)
+    train_model(model, x_train, y_train)
 
 
-def train_model(model, data):
+def train_model(model, x_train, y_train):
     """
     Trains the model
     """
     # data = data.reshape(-1, 1)
-    prediction = model.fit(data).predict(data)
-    #prediction = model.fit_predict(data.reshape(-1, 1))
+    prediction = model.fit(x_train).predict(x_train)
+    # prediction = model.fit_predict(data.reshape(-1, 1))
     print(f'prediction {prediction}')
-    print(f'data: {data}')
+    print(f'data: {x_train}')
     print('Number of anomalies:', np.sum(prediction == -1))
 
-    show_output(prediction, data)
+    show_output(prediction, x_train, y_train)
 
 
-def show_output(prediction, data):
+def show_output(prediction, x_train, y_train):
     """
     Predicts the model result
     """
-    show_anomalies(prediction, data)
-    print("Classification report")
-    print(classification_report(data, prediction))
-    print("--------------------")
-    # print("Accuracy")
-    # print(accuracy_score(data, prediction))
+    show_anomalies(prediction, x_train)
+    # print("Classification report")
+    # print(classification_report(y_train, (prediction > 0)))
+    # print("--------------------")
+    print("Accuracy")
+    print(accuracy_score(y_train, prediction))
     # print("--------------------")
     # print("Recall")
     # print(recall_score(data, prediction, average=None))
@@ -114,10 +114,10 @@ def show_output(prediction, data):
     # print(precision_score(data, prediction, average=None))
     # print("--------------------")
 
-    result(data, prediction)
+    # result(x_train, prediction)
 
 
-def result(data, prediction):
+def result(x_train, y_train, prediction):
     """
     Makes result of the model
     """
