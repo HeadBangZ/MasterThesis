@@ -1,9 +1,9 @@
 # MasterThesis
 Data Science Master Thesis (Anomaly Detection in Standard Machine Learning Datasets)
 
-# ML and DL models
+# ML and DL models using MNIST and Quickdraw
 
-- Random Forest
+- Isolation Forest
 - SVM
 - AE
 - VAE

@@ -24,6 +24,7 @@ graphviz==0.20.1
 grpcio==1.57.0
 h5py==3.9.0
 idna==3.4
+imageio==2.31.3
 ipykernel==6.25.2
 ipython==8.15.0
 isort==5.12.0
