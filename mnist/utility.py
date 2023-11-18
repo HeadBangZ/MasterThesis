@@ -93,14 +93,13 @@ def preprocess_data(data, labels, use_validation=True):
         test_data = test_data.reshape(-1, 28 * 28)
 
         train_labels = train_labels.astype(bool)
-        original_test_labels = test_labels
         test_labels = test_labels.astype(bool)
 
         normal_train_data = train_data[train_labels]
 
         anom_train_data = train_data[~train_labels]
         
-        return normal_train_data, anom_train_data, test_data, test_labels, val_data, original_test_labels
+        return normal_train_data, anom_train_data, test_data, test_labels, val_data
     else:
         train_data, test_data, train_labels, test_labels = train_test_split(data, labels, test_size=0.2, random_state=42)
 
@@ -111,14 +110,31 @@ def preprocess_data(data, labels, use_validation=True):
         test_data = test_data.reshape(-1, 28 * 28)
 
         train_labels = train_labels.astype(bool)
-        original_test_labels = test_labels
         test_labels = test_labels.astype(bool)
 
         normal_train_data = train_data[train_labels]
 
         anom_train_data = train_data[~train_labels]
 
-        return normal_train_data, anom_train_data, test_labels, original_test_labels
+        return normal_train_data, anom_train_data, test_data, test_labels
+
+
+def plot_normalized_pixel_data(normal_data, anomaly_data):
+    plt.grid()
+    plt.plot(np.arange(784), normal_data[0])
+    plt.title("Normal data")
+    plt.show()
+
+    plt.grid()
+    plt.plot(np.arange(784), anomaly_data[0])
+    plt.title("Abnormal data")
+    plt.show()
+
+def predict(model, data, threshold):
+    reconstructions = model(data)
+    loss = tf.keras.losses.mse(reconstructions, data)
+    proba = np.mean(np.square(data - reconstructions), axis=1)
+    return tf.math.less(loss, threshold), loss, proba
 
 
 def get_metrics(predictions, labels):
@@ -139,8 +155,12 @@ def print_stats(accuracy, precision, recall, report, cm):
     print(cm)
 
 
-def pr_auc_plot(predictions, labels):
-    precision_curve, recall_curve, _ = precision_recall_curve(labels, predictions)
+def pr_auc_plot(proba, labels, is_machine_learning=False):
+    if is_machine_learning:
+        # Normalize the scores to a range [0, 1] for interpretability
+        proba = 0.5 * (1 - (proba / np.max(np.abs(proba))))
+        
+    precision_curve, recall_curve, _ = precision_recall_curve(labels, proba)
     pr_auc = auc(recall_curve, precision_curve)
 
     # Plot the precision-recall curve
@@ -183,12 +203,12 @@ def roc_plot(predictions, labels):
     plt.show()
 
 
-def boxplot_plot(loss):
+def boxplot_plot(title, scorer):
     # Plot a boxplot of the reconstruction errors
     plt.figure(figsize=(8, 6))
-    sns.boxplot(y=loss, color='skyblue')
-    plt.title('Reconstruction Error Distribution')
-    plt.ylabel('Reconstruction Error')
+    sns.boxplot(y=scorer, color='skyblue')
+    plt.title(f'{title} Distribution')
+    plt.ylabel(f'{title}')
     plt.show()
 
 
