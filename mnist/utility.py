@@ -12,7 +12,7 @@ from tensorflow import keras
 # sklearn
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, classification_report,
-    precision_recall_curve, auc, confusion_matrix, roc_auc_score, roc_curve
+    precision_recall_curve, auc, confusion_matrix, roc_auc_score, roc_curve, f1_score
 )
 from sklearn.model_selection import train_test_split
 
@@ -22,67 +22,34 @@ import seaborn as sns
 
 # misc
 import json
+from PIL import Image, ImageDraw, ImageFont
+from sklearn.utils import shuffle
+import time
+import psutil
+import threading
 
 
 def load_data():
     mnist = keras.datasets.mnist
     anomalies = keras.datasets.fashion_mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    # TODO: Change this line if the mock data ain't Fashion_mnist
-    (anomalous_train_data, anomalous_train_labels), (anomalous_test_data, anomalous_test_labels) = anomalies.load_data()
 
-    anomalous_test_data = anomalous_test_data[:100]
-    anomalous_train_data = anomalous_train_data[:600]
-    anomalous_test_labels = anomalous_test_labels[:100]
-    anomalous_train_labels = anomalous_train_labels[:600]
-
-    y_test_binary = np.ones(len(y_test))
-    y_train_binary = np.ones(len(y_train))
-    anomalous_test_binary = np.zeros(len(anomalous_test_labels))
-    anomalous_train_binary = np.zeros(len(anomalous_train_labels))
-
-    x_data = np.concatenate((x_train, x_test))
-    y_labels = np.concatenate((y_test_binary, y_train_binary))
-    anom_data = np.concatenate((anomalous_train_data, anomalous_test_data))
-    anom_labels = np.concatenate((anomalous_test_binary, anomalous_train_binary))
-
-    data = np.concatenate((x_data, anom_data))
-    labels = np.concatenate((y_labels, anom_labels))
-
-    # Map labels
-    anomalous_test_labels = map_fashion_mnist_labels(anomalous_test_labels)
-    anomalous_train_labels = map_fashion_mnist_labels(anomalous_train_labels)
+    data = np.concatenate((x_train, x_test))
+    labels = np.concatenate((y_train, y_test))
     
     # Store the original labels before conversion to binary
-    original_labels = np.concatenate((y_test, y_train, anomalous_test_labels, anomalous_train_labels))
+    original_labels = np.concatenate((y_test, y_train))
 
     return data, labels, original_labels
 
 
-# TODO: Remove if the mock data ain't Fashion_mnist
-def map_fashion_mnist_labels(labels):
-    label_dict = {
-        0: "T-shirt/top",
-        1: "Trouser",
-        2: "Pullover",
-        3: "Dress",
-        4: "Coat",
-        5: "Sandal",
-        6: "Shirt",
-        7: "Sneaker",
-        8: "Bag",
-        9: "Ankle boot"
-    }
-
-    # Create a new array with mapped labels
-    mapped_labels = np.array([label_dict[label] for label in labels])
-
-    return mapped_labels
-
 def preprocess_data(data, labels, use_validation=True):
+    anomayly_indexes = [688, 420, 3064, 7500]
     if use_validation:
-        train_data, val_data, train_labels, _ = train_test_split(data, labels, test_size=0.2, random_state=42)
-        train_data, test_data, train_labels, test_labels = train_test_split(train_data, train_labels, test_size=0.25, random_state=42)
+        train_data, val_data, train_labels, val_labels = train_test_split(data, labels, test_size=0.2, random_state=42)
+        train_data, _, train_labels, _ = train_test_split(train_data, train_labels, test_size=0.2, random_state=42)
+
+        test_data, test_labels = get_testset()
 
         train_data = train_data.astype('float32') / 255.0
         val_data = val_data.astype('float32') / 255.0
@@ -92,16 +59,16 @@ def preprocess_data(data, labels, use_validation=True):
         val_data = val_data.reshape(-1, 28 * 28)
         test_data = test_data.reshape(-1, 28 * 28)
 
-        train_labels = train_labels.astype(bool)
-        test_labels = test_labels.astype(bool)
-
-        normal_train_data = train_data[train_labels]
-
-        anom_train_data = train_data[~train_labels]
+        # Create true_labels for test set
+        anom_data = test_data[anomayly_indexes]
+        test_true_labels = np.ones(len(test_labels), dtype=bool)
+        test_true_labels[anomayly_indexes] = False
         
-        return normal_train_data, anom_train_data, test_data, test_labels, val_data
+        return train_data, train_labels, test_data, test_labels, val_data, val_labels, test_true_labels, anom_data
     else:
         train_data, test_data, train_labels, test_labels = train_test_split(data, labels, test_size=0.2, random_state=42)
+
+        test_data, test_labels = get_testset()
 
         train_data = train_data.astype('float32') / 255.0
         test_data = test_data.astype('float32') / 255.0
@@ -109,26 +76,35 @@ def preprocess_data(data, labels, use_validation=True):
         train_data = train_data.reshape(-1, 28 * 28)
         test_data = test_data.reshape(-1, 28 * 28)
 
-        train_labels = train_labels.astype(bool)
-        test_labels = test_labels.astype(bool)
+        # Create true_labels for test set
+        anom_data = test_data[anomayly_indexes]
+        test_true_labels = np.ones(len(test_labels), dtype=bool)
+        test_true_labels[anomayly_indexes] = False
 
-        normal_train_data = train_data[train_labels]
+        return train_data, train_labels, test_data, test_labels, test_true_labels, anom_data
+    
 
-        anom_train_data = train_data[~train_labels]
+def get_testset():
+    with open('../test_X.npy', 'rb') as f:
+        test_data = np.load(f)
 
-        return normal_train_data, anom_train_data, test_data, test_labels
+    with open('../test_Y.npy', 'rb') as f:
+        test_labels = np.load(f)
+
+    return test_data, test_labels
 
 
 def plot_normalized_pixel_data(normal_data, anomaly_data):
     plt.grid()
-    plt.plot(np.arange(784), normal_data[0])
+    plt.plot(np.arange(784), normal_data[-1])
     plt.title("Normal data")
     plt.show()
 
     plt.grid()
-    plt.plot(np.arange(784), anomaly_data[0])
+    plt.plot(np.arange(784), anomaly_data[-1])
     plt.title("Abnormal data")
     plt.show()
+
 
 def predict(model, data, threshold):
     reconstructions = model(data)
@@ -141,15 +117,17 @@ def get_metrics(predictions, labels):
     accuracy = accuracy_score(labels, predictions)
     precision = precision_score(labels, predictions, average='binary')
     recall = recall_score(labels, predictions, average='binary')
+    f1 = f1_score(labels, predictions, average='binary')
     report = classification_report(labels, predictions, target_names=['anomaly', 'normal'])
     cm = confusion_matrix(labels, predictions)
-    return accuracy, precision, recall, report, cm
+    return accuracy, precision, recall, f1, report, cm
 
 
-def print_stats(accuracy, precision, recall, report, cm):
+def print_stats(accuracy, precision, recall, f1, report, cm):
     print("Accuracy = {}".format(accuracy))
     print("Precision = {}".format(precision))
     print("Recall = {}".format(recall))
+    print("F1 = {}".format(f1))
     print("Report\n {}".format(report))
     print("Confusion Matrix")
     print(cm)
@@ -212,13 +190,13 @@ def boxplot_plot(title, scorer):
     plt.show()
 
 
-def plot_anomaly_imgs(anomaly_indexes, data):
+def plot_anomaly_imgs(anomaly_indexes, data, labels):
     # Plot some of the anomalies
     plt.figure(figsize=(12, 8))
     for i, idx in enumerate(anomaly_indexes[:10]):  # Plot the first 10 anomaly indices
         plt.subplot(2, 5, i + 1)
         plt.imshow(data[idx].reshape(28, 28), cmap='gray')
-        plt.title(f'Anomaly {i+1}')
+        plt.title(f'Label {labels[idx]}')
         plt.axis('off')
     plt.tight_layout()
     plt.show()
@@ -265,3 +243,50 @@ def write_to_json(preds, output_dir="."):
 
     print(f"Anomaly indexes saved to {json_filename}")
     return anomaly_indexes
+
+
+# TODO: Remove
+# Function to generate anomalies (letters) and labels
+def generate_letter_anomalies(num_anomalies=100, font_path="Arial"):
+    font_size = 28  # Adjust font size as needed
+    font = ImageFont.truetype(font_path, font_size)
+    
+    anomalies = []
+    labels = []
+
+    for _ in range(num_anomalies):
+        # Choose a random letter from the alphabet
+        letter = chr(np.random.randint(65, 91))  # ASCII codes for uppercase letters
+        
+        # Create a blank image
+        img = Image.new('L', (28, 28), color=0)
+        draw = ImageDraw.Draw(img)
+
+        # Draw the letter on the image
+        draw.text((0, 0), letter, fill=255, font=font)
+
+        # Convert the image to a NumPy array and normalize
+        img_array = np.array(img) / 255.0
+
+        # Append the anomaly to the list
+        anomalies.append(img_array)
+        labels.append(0)  # Anomaly label
+
+    return np.array(anomalies), np.array(labels)
+
+# Function to concatenate anomalies with test data and shuffle
+def concatenate_and_shuffle(test_data, test_labels, anomalies, anomaly_labels):
+    concatenated_data = np.concatenate((test_data, anomalies))
+    concatenated_labels = np.concatenate((test_labels, anomaly_labels))
+    
+    # Shuffle the data and labels together
+    shuffled_data, shuffled_labels = shuffle(concatenated_data, concatenated_labels, random_state=42)
+    
+    return shuffled_data, shuffled_labels
+
+# Function to save shuffled data and labels to .npy files
+def save_to_npy(data, labels, data_filename="shuffled_data.npy", labels_filename="shuffled_labels.npy"):
+    np.save(data_filename, data)
+    np.save(labels_filename, labels)
+    print(f"Data saved to {data_filename}")
+    print(f"Labels saved to {labels_filename}")
