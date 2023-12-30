@@ -78,10 +78,11 @@ def preprocess_data(data, labels, use_validation=True):
 
         # Create true_labels for test set
         anom_data = test_data[anomayly_indexes]
+        anom_labels = test_labels[anomayly_indexes]
         test_true_labels = np.ones(len(test_labels), dtype=bool)
         test_true_labels[anomayly_indexes] = False
 
-        return train_data, train_labels, test_data, test_labels, test_true_labels, anom_data
+        return train_data, train_labels, test_data, test_labels, test_true_labels, anom_data, anom_labels
     
 
 def get_testset():
