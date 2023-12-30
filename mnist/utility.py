@@ -183,12 +183,40 @@ def roc_plot(predictions, labels):
 
 
 def boxplot_plot(title, scorer):
-    # Plot a boxplot of the reconstruction errors
+    # Plot a boxplot of the data
     plt.figure(figsize=(8, 6))
-    sns.boxplot(y=scorer, color='skyblue')
+    boxplot = plt.boxplot(scorer)
+
+    # Extract statistical information from the boxplot
+    minimum = boxplot['whiskers'][0].get_ydata()[1]
+    maximum = boxplot['whiskers'][1].get_ydata()[1]
+    q1 = boxplot['whiskers'][0].get_ydata()[0]
+    q3 = boxplot['whiskers'][1].get_ydata()[0]
+    iqr = q3 - q1
+
+    # Set plot labels and title
     plt.title(f'{title} Distribution')
     plt.ylabel(f'{title}')
+
+    # Show the boxplot
     plt.show()
+
+    # Return the statistical values
+    return (
+        round(q1, 3),
+        round(q3, 3),
+        round(iqr, 3),
+        round(minimum, 3),
+        round(maximum, 3)
+    )
+
+
+def print_boxplot(q1, q3, iqr, minimum, maximum):
+    print("Q1: ", q1)
+    print("Q3: ", q3)
+    print("IQR: ", iqr)
+    print("Minimum: ", minimum)
+    print("Maximum: ", maximum)
 
 
 def plot_anomaly_imgs(anomaly_indexes, data, labels):
